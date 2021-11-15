@@ -121,10 +121,10 @@ contract ECIOMarketplace is ReentrancyGuard {
 
 
         //Transfer fee to platform.
-        ERC20(buyWithTokenContract).transferFrom(msg.sender, address(this), fee);
+        IERC20(buyWithTokenContract).transferFrom(msg.sender, address(this), fee);
 
-        //Transfer token(BUSD) to nft owner(is a seller now).
-        ERC20(buyWithTokenContract).transfer(idToMarketItem[itemId].seller, amount);
+        //Transfer token(BUSD) to nft seller.
+        IERC20(buyWithTokenContract).transferFrom(msg.sender, idToMarketItem[itemId].seller, amount);
 
         // idToMarketItem[itemId].seller.transfer(msg.value);
         IERC721(nftContract).transferFrom(address(this), msg.sender, tokenId);
