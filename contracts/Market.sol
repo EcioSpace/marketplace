@@ -32,15 +32,20 @@ contract ECIOMarketplace is ReentrancyGuard {
 
     mapping(uint256 => MarketItem) private idToMarketItem;
 
-    event MarketItemCreated(
+    event MarketItemUpdate(
         address indexed nftContract,
         uint256 indexed itemId,
         uint256 indexed tokenId,
         address seller,
         address owner,
         uint256 price,
-        address buyWithTokenContract
+        address buyWithTokenContract,
+        bool sold,
+        bool cancel
     );
+
+
+
 
     /* Returns the listing price of the contract */
     function getListingPrice() public view returns (uint256) {
@@ -61,6 +66,19 @@ contract ECIOMarketplace is ReentrancyGuard {
             idToMarketItem[itemId].tokenId
         );
         _itemsCanceled.increment();
+
+        emit MarketItemUpdate(
+            idToMarketItem[itemId].nftContract,
+            idToMarketItem[itemId].itemId,
+            idToMarketItem[itemId].tokenId,
+            address(0),
+            msg.sender,
+            idToMarketItem[itemId].price,
+            idToMarketItem[itemId].buyWithTokenContract,
+            true,
+            false
+        );
+
     }
 
     /* Places an item for sale on the marketplace */
@@ -86,16 +104,22 @@ contract ECIOMarketplace is ReentrancyGuard {
             false
         );
 
+        // seller must approve market contract
+        IERC721(nftContract).approve(address(this), tokenId);
+
+        //
         IERC721(nftContract).transferFrom(msg.sender, address(this), tokenId);
 
-        emit MarketItemCreated(
+        emit MarketItemUpdate(
             nftContract,
             itemId,
             tokenId,
             msg.sender,
             address(0),
             price,
-            buyWithTokenContract
+            buyWithTokenContract,
+            false,
+            false
         );
     }
 
@@ -119,6 +143,8 @@ contract ECIOMarketplace is ReentrancyGuard {
             "Your balance has not enough amount + including fee."
         );
 
+        //call approve
+        IERC20(buyWithTokenContract).approve(address(this), totalAmount);
 
         //Transfer fee to platform.
         IERC20(buyWithTokenContract).transferFrom(msg.sender, address(this), fee);
@@ -134,15 +160,18 @@ contract ECIOMarketplace is ReentrancyGuard {
         _itemsSold.increment();
 
 
-        emit MarketItemCreated(
+        emit MarketItemUpdate(
             nftContract,
             itemId,
             tokenId,
-            msg.sender,
             address(0),
+            msg.sender,
             price,
-            buyWithTokenContract
+            buyWithTokenContract,
+            true,
+            false
         );
+
     }
 
     /* Returns all unsold market items */
