@@ -132,6 +132,17 @@ contract ECIOMarketplace is ReentrancyGuard {
         idToMarketItem[itemId].owner = msg.sender;
         idToMarketItem[itemId].sold = true;
         _itemsSold.increment();
+
+
+        emit MarketItemCreated(
+            nftContract,
+            itemId,
+            tokenId,
+            msg.sender,
+            address(0),
+            price,
+            buyWithTokenContract
+        );
     }
 
     /* Returns all unsold market items */
