@@ -1,61 +1,39 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract ECIONFTCore is Initializable, ERC721Upgradeable, ERC721BurnableUpgradeable, ERC721URIStorageUpgradeable, AccessControlUpgradeable {
-
-    using CountersUpgradeable for CountersUpgradeable.Counter;
+contract ECIOTEST is ERC721, ERC721URIStorage, AccessControl {
+    using Counters for Counters.Counter;
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    CountersUpgradeable.Counter private _tokenIdCounter;
+    Counters.Counter private _tokenIdCounter;
 
-    mapping(uint256 => uint256) private _createdAt;
-    mapping(uint256 => string)  private _partCodes;
-
-    function initialize() initializer public {
-        __ERC721_init("ECIO NFT Core", "ECIO");
-        __ERC721Burnable_init();
-        __AccessControl_init();
-        __ERC721URIStorage_init();
-
+    constructor() ERC721("ECIO TEST", "ECM") {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(MINTER_ROLE, msg.sender);
     }
 
-    function _baseURI() internal pure override returns (string memory) {
-        return "https://metadata.ecio.space/items/";
-    }
-
-    function tokenInfo(uint256 tokenId) public view virtual returns (string memory, uint256) {
-        return (_partCodes[tokenId], _createdAt[tokenId]);
-    }
-
-
-    function safeMint(address to, string memory partCode) public onlyRole (MINTER_ROLE) {
-        _safeMint(to, _tokenIdCounter.current());
-        _partCodes[_tokenIdCounter.current()] = partCode;
-        _createdAt[_tokenIdCounter.current()] = block.timestamp;
+    function safeMint(address to, string memory uri) public onlyRole(MINTER_ROLE) {
+        uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
+        _safeMint(to, tokenId);
+        _setTokenURI(tokenId, uri);
     }
 
-    function _burn(uint256 tokenId)
-        internal
-        override(ERC721Upgradeable, ERC721URIStorageUpgradeable)
-    {
+    // The following functions are overrides required by Solidity.
+
+    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
         super._burn(tokenId);
     }
 
     function tokenURI(uint256 tokenId)
         public
         view
-        override(ERC721Upgradeable, ERC721URIStorageUpgradeable)
+        override(ERC721, ERC721URIStorage)
         returns (string memory)
     {
         return super.tokenURI(tokenId);
@@ -64,18 +42,9 @@ contract ECIONFTCore is Initializable, ERC721Upgradeable, ERC721BurnableUpgradea
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721Upgradeable, AccessControlUpgradeable)
+        override(ERC721, AccessControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
-    }
-
-    function transfer(
-        address _contractAddress,
-        address _to,
-        uint256 _amount
-    ) public onlyRole (MINTER_ROLE) {
-        IERC20 _token = IERC20(_contractAddress);
-        _token.transfer(_to, _amount);
     }
 }

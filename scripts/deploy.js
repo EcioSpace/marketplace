@@ -12,13 +12,13 @@ async function main() {
    await nftMarket.deployed();
    console.log("nftMarket deployed to:", nftMarket.address);
 
-   const NFT = await hre.ethers.getContractFactory("NFT");
-   const nft = await NFT.deploy(nftMarket.address);
+   const NFT = await hre.ethers.getContractFactory("ECIOTEST");
+   const nft = await NFT.deploy();
    await nft.deployed();
    console.log("nft deployed to:", nft.address);
 
    const ERC20 = await hre.ethers.getContractFactory("ERC20");
-   const erc20 = await ERC20.deploy(nftMarket.address);
+   const erc20 = await ERC20.deploy();
    await erc20.deployed();
    console.log("nft deployed to:", nft.address);
 
