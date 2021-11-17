@@ -107,7 +107,7 @@ contract ECIOMarketplace is ReentrancyGuard {
         // seller must approve market contract
         IERC721(nftContract).approve(address(this), tokenId);
 
-        //
+        // tranfer NFT ownership to Market contract
         IERC721(nftContract).transferFrom(msg.sender, address(this), tokenId);
 
         emit MarketItemUpdate(
