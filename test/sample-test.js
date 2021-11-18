@@ -88,7 +88,7 @@ const { expect } = require("chai");
         await hardhatToken.connect(addr1).approve(nftMarketAddress, 100000000);
         await nftMarket.connect(addr1).createMarketSale(nftContractAddress, 1);
 
-        expect(await hardhatToken.balanceOf(addr2.address).to.equal(9575))
+        expect(await hardhatToken.balanceOf(addr2.address)).to.equal(9575);
 
     });
 
