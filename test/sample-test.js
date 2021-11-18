@@ -74,18 +74,21 @@ const { expect } = require("chai");
         await nft.connect(owner).safeMint(addr2.address, "001");
 
         /* deploy the NFT Market contract */
-        const NFTMarket = await hre.ethers.getContractFactory("NFTMarket");
-        const nftMarket = await NFTMarket.deploy();
+        const Market = await ethers.getContractFactory("ECIOMarketplace");
+        const nftMarket = await Market.deploy();
         await nftMarket.deployed();
         const nftMarketAddress = nftMarket.address;
 
         /*  Approve market address to create Item */
-        await nft.connect(addr2).setApprovalForAll(nftMarketAddress, ture);
+        await nft.connect(addr2).setApprovalForAll(nftMarketAddress, true);
 
         /*  create market market item */
         await nftMarket.connect(addr2).createMarketItem(nftContractAddress, 0, 10000, tokenAddress);
 
-        expect(await nftMarket.connect(addr2).fetchItemsCreated)
+        await hardhatToken.connect(addr1).approve(nftMarketAddress, 100000000);
+        await nftMarket.connect(addr1).createMarketSale(nftContractAddress, 1);
+
+        expect(await hardhatToken.balanceOf(addr2.address).to.equal(9575))
 
     });
 
