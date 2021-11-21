@@ -16,7 +16,11 @@ contract ECIOMarketplace is ReentrancyGuard {
     uint256 feesRate = 425;
     uint256 listingPrice = 100;
 
-    constructor() {}
+    address owner;
+    constructor() {
+        owner = msg.sender;
+    }
+
 
     struct MarketItem {
         address nftContract;
@@ -45,7 +49,10 @@ contract ECIOMarketplace is ReentrancyGuard {
     );
 
 
-
+    modifier OnlyOwner() {
+        require( msg.sender == owner, "Not owner");
+        _;
+    }
 
     /* Returns the listing price of the contract */
     function getListingPrice() public view returns (uint256) {
@@ -152,6 +159,7 @@ contract ECIOMarketplace is ReentrancyGuard {
         //Transfer token(BUSD) to nft seller.
         IERC20(buyWithTokenContract).transferFrom(msg.sender, idToMarketItem[itemId].seller, amount);
 
+
         // idToMarketItem[itemId].seller.transfer(msg.value);
         IERC721(nftContract).transferFrom(address(this), msg.sender, tokenId);
 
@@ -197,6 +205,26 @@ contract ECIOMarketplace is ReentrancyGuard {
         }
         return items;
     }
+
+
+    /* tranfer to owner address*/
+    function _tranfertoOwner(address _tokenAddress, address _receiver, uint256 _amount)
+    public
+    OnlyOwner
+    nonReentrant
+    {
+
+      uint256 balance = ERC20(_tokenAddress).balanceOf(address(this));
+      require(
+          balance >= _amount,
+          "Your balance has not enough amount totranfer."
+      );
+
+
+      IERC20(_tokenAddress).transfer(_receiver, _amount);
+
+    }
+
 
     /* Returns only items that a user has purchased */
     function fetchMyNFTs() public view returns (MarketItem[] memory) {
