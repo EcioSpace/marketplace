@@ -7,20 +7,19 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract Market is ReentrancyGuard {
+
     using Counters for Counters.Counter;
 
-    Counters.Counter private _itemIds;
-    Counters.Counter private _itemsSold;
-    Counters.Counter private _itemsCanceled;
+    Counters.Counter private _orderIds;
+    Counters.Counter private _orderSold;
+    Counters.Counter private _orderCanceled;
 
     uint256 feesRate = 425;
-    uint256 listingPrice = 100;
 
     address owner;
     constructor() {
         owner = msg.sender;
     }
-
 
     struct MarketItem {
         address nftContract;
@@ -36,7 +35,31 @@ contract Market is ReentrancyGuard {
 
     mapping(uint256 => MarketItem) private idToMarketItem;
 
-    event MarketItemUpdate(
+    event OrderCreated(
+        address indexed nftContract,
+        uint256 indexed itemId,
+        uint256 indexed tokenId,
+        address seller,
+        address owner,
+        uint256 price,
+        address buyWithTokenContract,
+        bool sold,
+        bool cancel
+    );
+
+     event OrderCanceled(
+        address indexed nftContract,
+        uint256 indexed itemId,
+        uint256 indexed tokenId,
+        address seller,
+        address owner,
+        uint256 price,
+        address buyWithTokenContract,
+        bool sold,
+        bool cancel
+    );
+
+     event OrderSuccessful(
         address indexed nftContract,
         uint256 indexed itemId,
         uint256 indexed tokenId,
@@ -54,51 +77,17 @@ contract Market is ReentrancyGuard {
         _;
     }
 
-    /* Returns the listing price of the contract */
-    function getListingPrice() public view returns (uint256) {
-        return listingPrice;
-    }
-
-    function cancelMarketItem(uint256 itemId) public nonReentrant {
-        require(idToMarketItem[itemId].sold == false, "Sold item");
-        require(idToMarketItem[itemId].cancel == false, "Canceled item");
-        require(idToMarketItem[itemId].seller == msg.sender); // check if the person is seller
-
-        idToMarketItem[itemId].cancel = true;
-
-        //Transfer back to owner :: owner is marketplace now >>> original owner
-        IERC721(idToMarketItem[itemId].nftContract).transferFrom(
-            address(this),
-            msg.sender,
-            idToMarketItem[itemId].tokenId
-        );
-        _itemsCanceled.increment();
-
-        emit MarketItemUpdate(
-            idToMarketItem[itemId].nftContract,
-            idToMarketItem[itemId].itemId,
-            idToMarketItem[itemId].tokenId,
-            address(0),
-            msg.sender,
-            idToMarketItem[itemId].price,
-            idToMarketItem[itemId].buyWithTokenContract,
-            true,
-            false
-        );
-
-    }
-
     /* Places an item for sale on the marketplace */
-    function createMarketItem(
+    function createOrder(
         address nftContract,
         uint256 tokenId,
         uint256 price,
         address buyWithTokenContract
-    ) public payable nonReentrant {
+    ) public nonReentrant {
         // set require ERC721 approve below
         require(price > 100, "Price must be at least 100 wei");
-        _itemIds.increment();
-        uint256 itemId = _itemIds.current();
+        _orderIds.increment();
+        uint256 itemId = _orderIds.current();
         idToMarketItem[itemId] = MarketItem(
             nftContract,
             itemId,
@@ -112,12 +101,12 @@ contract Market is ReentrancyGuard {
         );
 
         // seller must approve market contract
-        IERC721(nftContract).approve(address(this), tokenId);
+        // IERC721(nftContract).approve(address(this), tokenId);
 
         // tranfer NFT ownership to Market contract
         IERC721(nftContract).transferFrom(msg.sender, address(this), tokenId);
 
-        emit MarketItemUpdate(
+        emit OrderCreated(
             nftContract,
             itemId,
             tokenId,
@@ -130,11 +119,40 @@ contract Market is ReentrancyGuard {
         );
     }
 
+    function cancelOrder(uint256 itemId) public nonReentrant {
+        
+        require(idToMarketItem[itemId].sold == false, "Sold item");
+        require(idToMarketItem[itemId].cancel == false, "Canceled item");
+        require(idToMarketItem[itemId].seller == msg.sender); // check if the person is seller
+
+        idToMarketItem[itemId].cancel = true;
+
+        //Transfer back to owner :: owner is marketplace now >>> original owner
+        IERC721(idToMarketItem[itemId].nftContract).transferFrom(
+            address(this),
+            msg.sender,
+            idToMarketItem[itemId].tokenId
+        );
+        _orderCanceled.increment();
+
+        emit OrderCanceled(
+            idToMarketItem[itemId].nftContract,
+            idToMarketItem[itemId].itemId,
+            idToMarketItem[itemId].tokenId,
+            address(0),
+            msg.sender,
+            idToMarketItem[itemId].price,
+            idToMarketItem[itemId].buyWithTokenContract,
+            true,
+            false
+        );
+
+    }
+
     /* Creates the sale of a marketplace item */
     /* Transfers ownership of the item, as well as funds between parties */
-    function createMarketSale(address nftContract, uint256 itemId)
+    function createSale(uint256 itemId)
         public
-        payable
         nonReentrant
     {
         uint256 price = idToMarketItem[itemId].price;
@@ -144,6 +162,7 @@ contract Market is ReentrancyGuard {
         uint256 fee = price * feesRate / 10000;
         uint256 amount = price - fee;
         uint256 totalAmount = price + fee;
+        address nftContract = idToMarketItem[itemId].nftContract;
 
         require(
             balance >= totalAmount,
@@ -151,7 +170,7 @@ contract Market is ReentrancyGuard {
         );
 
         //call approve
-        IERC20(buyWithTokenContract).approve(address(this), totalAmount);
+        // IERC20(buyWithTokenContract).approve(address(this), totalAmount);
 
         //Transfer fee to platform.
         IERC20(buyWithTokenContract).transferFrom(msg.sender, address(this), fee);
@@ -159,16 +178,15 @@ contract Market is ReentrancyGuard {
         //Transfer token(BUSD) to nft seller.
         IERC20(buyWithTokenContract).transferFrom(msg.sender, idToMarketItem[itemId].seller, amount);
 
-
         // idToMarketItem[itemId].seller.transfer(msg.value);
         IERC721(nftContract).transferFrom(address(this), msg.sender, tokenId);
 
         idToMarketItem[itemId].owner = msg.sender;
         idToMarketItem[itemId].sold = true;
-        _itemsSold.increment();
+        _orderSold.increment();
 
 
-        emit MarketItemUpdate(
+        emit OrderSuccessful(
             nftContract,
             itemId,
             tokenId,
@@ -184,10 +202,10 @@ contract Market is ReentrancyGuard {
 
     /* Returns all unsold market items */
     function fetchMarketItems() public view returns (MarketItem[] memory) {
-        uint256 itemCount = _itemIds.current();
-        uint256 unsoldItemCount = _itemIds.current() -
-            _itemsSold.current() -
-            _itemsCanceled.current();
+        uint256 itemCount = _orderIds.current();
+        uint256 unsoldItemCount = _orderIds.current() -
+            _orderSold.current() -
+            _orderCanceled.current();
 
         uint256 currentIndex = 0;
 
@@ -228,7 +246,7 @@ contract Market is ReentrancyGuard {
 
     /* Returns only items that a user has purchased */
     function fetchMyNFTs() public view returns (MarketItem[] memory) {
-        uint256 totalItemCount = _itemIds.current();
+        uint256 totalItemCount = _orderIds.current();
         uint256 itemCount = 0;
         uint256 currentIndex = 0;
 
@@ -253,7 +271,7 @@ contract Market is ReentrancyGuard {
 
     /* Returns only items a user has created */
     function fetchItemsCreated() public view returns (MarketItem[] memory) {
-        uint256 totalItemCount = _itemIds.current();
+        uint256 totalItemCount = _orderIds.current();
         uint256 itemCount = 0;
         uint256 currentIndex = 0;
 
