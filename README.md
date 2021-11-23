@@ -14,10 +14,6 @@ node scripts/sample-script.js
 npx hardhat help
 ```
 
-
-
-
-
 Project setup
 
 ```shell
@@ -31,4 +27,11 @@ Setting up Tailwind CSS
 
 ```shell
 npm install -D tailwindcss@latest postcss@latest autoprefixer@latest
+```
+
+## Migrate
+```sol
+npx compile
+npx hardhat run scripts/testnet-deploy.js --network testnet
+npx hardhat  verify --network testnet {CONTRACT_ADDRESS} --contract contracts/Market.sol:Market
 ```

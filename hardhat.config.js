@@ -2,10 +2,13 @@
 
 require("@nomiclabs/hardhat-waffle");
 require('@nomiclabs/hardhat-ethers');
-const { mnemonic, privateKey } = require('./secrets.json');
-// const fs = require('fs')
-// const privateKey = fs.readFileSync(".secret").toString().trim() || "01234567890123456789"
+require("@nomiclabs/hardhat-etherscan");
 
+// const { mnemonic, privateKey } = require('./secrets.json');
+const fs = require('fs')
+// const privateKey = fs.readFileSync(".secret").toString().trim() || "01234567890123456789"
+const mnemonic = fs.readFileSync(".secret").toString().trim() || "01234567890123456789"
+const apiKey = fs.readFileSync(".apiKey").toString().trim()
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
@@ -22,7 +25,7 @@ const { mnemonic, privateKey } = require('./secrets.json');
        chainId: 97,
        gasPrice: 20000000000,
        accounts: {mnemonic: mnemonic}
-     },
+     }, 
      mainnet: {
        url: "https://bsc-dataseed.binance.org/",
        chainId: 56,
@@ -31,11 +34,10 @@ const { mnemonic, privateKey } = require('./secrets.json');
      },
      hardhat: {
       chainId: 1337
-    },
-    mumbai: {
-      url: "https://rpc-mumbai.matic.today",
-      accounts: [privateKey]
     }
+   },
+   etherscan: {
+    apiKey: apiKey
    },
    solidity: {
    version: "0.8.3",
