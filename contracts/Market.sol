@@ -77,6 +77,11 @@ contract Market is ReentrancyGuard {
         _;
     }
 
+    function updateFeesRate(uint256 newRate) public  OnlyOwner() {
+        require(newRate <=500);
+        feesRate = newRate;
+    }
+
     /* Places an item for sale on the marketplace */
     function createOrder(
         address nftContract,
