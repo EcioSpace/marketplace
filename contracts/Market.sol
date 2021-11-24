@@ -21,9 +21,9 @@ contract Market is ReentrancyGuard {
         owner = msg.sender;
     }
 
-    struct MarketItem {
+    struct Order {
         address nftContract;
-        uint256 itemId;
+        uint256 orderId;
         uint256 tokenId;
         address seller;
         address owner;
@@ -33,11 +33,11 @@ contract Market is ReentrancyGuard {
         bool cancel;
     }
 
-    mapping(uint256 => MarketItem) private idToMarketItem;
+    mapping(uint256 => Order) private idToOrder;
 
     event OrderCreated(
         address indexed nftContract,
-        uint256 indexed itemId,
+        uint256 indexed orderId,
         uint256 indexed tokenId,
         address seller,
         address owner,
@@ -49,7 +49,7 @@ contract Market is ReentrancyGuard {
 
      event OrderCanceled(
         address indexed nftContract,
-        uint256 indexed itemId,
+        uint256 indexed orderId,
         uint256 indexed tokenId,
         address seller,
         address owner,
@@ -61,7 +61,7 @@ contract Market is ReentrancyGuard {
 
      event OrderSuccessful(
         address indexed nftContract,
-        uint256 indexed itemId,
+        uint256 indexed orderId,
         uint256 indexed tokenId,
         address seller,
         address owner,
@@ -92,10 +92,10 @@ contract Market is ReentrancyGuard {
         // set require ERC721 approve below
         require(price > 100, "Price must be at least 100 wei");
         _orderIds.increment();
-        uint256 itemId = _orderIds.current();
-        idToMarketItem[itemId] = MarketItem(
+        uint256 orderId = _orderIds.current();
+        idToOrder[orderId] = Order(
             nftContract,
-            itemId,
+            orderId,
             tokenId,
             msg.sender,
             address(0),
@@ -113,7 +113,7 @@ contract Market is ReentrancyGuard {
 
         emit OrderCreated(
             nftContract,
-            itemId,
+            orderId,
             tokenId,
             msg.sender,
             address(0),
@@ -124,50 +124,50 @@ contract Market is ReentrancyGuard {
         );
     }
 
-    function cancelOrder(uint256 itemId) public nonReentrant {
+    function cancelOrder(uint256 orderId) public nonReentrant {
         
-        require(idToMarketItem[itemId].sold == false, "Sold item");
-        require(idToMarketItem[itemId].cancel == false, "Canceled item");
-        require(idToMarketItem[itemId].seller == msg.sender); // check if the person is seller
+        require(idToOrder[orderId].sold == false, "Sold item");
+        require(idToOrder[orderId].cancel == false, "Canceled item");
+        require(idToOrder[orderId].seller == msg.sender); // check if the person is seller
 
-        idToMarketItem[itemId].cancel = true;
+        idToOrder[orderId].cancel = true;
 
         //Transfer back to owner :: owner is marketplace now >>> original owner
-        IERC721(idToMarketItem[itemId].nftContract).transferFrom(
+        IERC721(idToOrder[orderId].nftContract).transferFrom(
             address(this),
             msg.sender,
-            idToMarketItem[itemId].tokenId
+            idToOrder[orderId].tokenId
         );
         _orderCanceled.increment();
 
         emit OrderCanceled(
-            idToMarketItem[itemId].nftContract,
-            idToMarketItem[itemId].itemId,
-            idToMarketItem[itemId].tokenId,
+            idToOrder[orderId].nftContract,
+            idToOrder[orderId].orderId,
+            idToOrder[orderId].tokenId,
             address(0),
             msg.sender,
-            idToMarketItem[itemId].price,
-            idToMarketItem[itemId].buyWithTokenContract,
+            idToOrder[orderId].price,
+            idToOrder[orderId].buyWithTokenContract,
             true,
             false
         );
 
     }
 
-    /* Creates the sale of a marketplace item */
-    /* Transfers ownership of the item, as well as funds between parties */
-    function createSale(uint256 itemId)
+    /* Creates the sale of a marketplace order */
+    /* Transfers ownership of the order, as well as funds between parties */
+    function createSale(uint256 orderId)
         public
         nonReentrant
     {
-        uint256 price = idToMarketItem[itemId].price;
-        uint256 tokenId = idToMarketItem[itemId].tokenId;
-        address buyWithTokenContract = idToMarketItem[itemId].buyWithTokenContract;
+        uint256 price = idToOrder[orderId].price;
+        uint256 tokenId = idToOrder[orderId].tokenId;
+        address buyWithTokenContract = idToOrder[orderId].buyWithTokenContract;
         uint256 balance = ERC20(buyWithTokenContract).balanceOf(msg.sender);
         uint256 fee = price * feesRate / 10000;
         uint256 amount = price - fee;
         uint256 totalAmount = price + fee;
-        address nftContract = idToMarketItem[itemId].nftContract;
+        address nftContract = idToOrder[orderId].nftContract;
 
         require(
             balance >= totalAmount,
@@ -181,19 +181,19 @@ contract Market is ReentrancyGuard {
         IERC20(buyWithTokenContract).transferFrom(msg.sender, address(this), fee);
 
         //Transfer token(BUSD) to nft seller.
-        IERC20(buyWithTokenContract).transferFrom(msg.sender, idToMarketItem[itemId].seller, amount);
+        IERC20(buyWithTokenContract).transferFrom(msg.sender, idToOrder[orderId].seller, amount);
 
-        // idToMarketItem[itemId].seller.transfer(msg.value);
+        // idToOrder[orderId].seller.transfer(msg.value);
         IERC721(nftContract).transferFrom(address(this), msg.sender, tokenId);
 
-        idToMarketItem[itemId].owner = msg.sender;
-        idToMarketItem[itemId].sold = true;
+        idToOrder[orderId].owner = msg.sender;
+        idToOrder[orderId].sold = true;
         _orderSold.increment();
 
 
         emit OrderSuccessful(
             nftContract,
-            itemId,
+            orderId,
             tokenId,
             address(0),
             msg.sender,
@@ -205,28 +205,28 @@ contract Market is ReentrancyGuard {
 
     }
 
-    /* Returns all unsold market items */
-    function fetchMarketItems() public view returns (MarketItem[] memory) {
-        uint256 itemCount = _orderIds.current();
-        uint256 unsoldItemCount = _orderIds.current() -
+    /* Returns all unsold market orders */
+    function fetchMarketOrders() public view returns (Order[] memory) {
+        uint256 orderCount = _orderIds.current();
+        uint256 unsoldOrderCount = _orderIds.current() -
             _orderSold.current() -
             _orderCanceled.current();
 
         uint256 currentIndex = 0;
 
-        MarketItem[] memory items = new MarketItem[](unsoldItemCount);
+        Order[] memory orders = new Order[](unsoldOrderCount);
 
-        for (uint256 i = 0; i < itemCount; i++) {
+        for (uint256 i = 0; i < orderCount; i++) {
             if (
-                idToMarketItem[i + 1].sold == false &&
-                idToMarketItem[i + 1].cancel == false
+                idToOrder[i + 1].sold == false &&
+                idToOrder[i + 1].cancel == false
             ) {
-                MarketItem storage currentItem = idToMarketItem[i + 1];
-                items[currentIndex] = currentItem; /// ?
+                Order storage currentOrder = idToOrder[i + 1];
+                orders[currentIndex] = currentOrder; /// ?
                 currentIndex += 1;
             }
         }
-        return items;
+        return orders;
     }
 
 
@@ -249,52 +249,52 @@ contract Market is ReentrancyGuard {
     }
 
 
-    /* Returns only items that a user has purchased */
-    function fetchMyNFTs() public view returns (MarketItem[] memory) {
-        uint256 totalItemCount = _orderIds.current();
-        uint256 itemCount = 0;
+    /* Returns only orders that a user has purchased */
+    function fetchMyNFTs() public view returns (Order[] memory) {
+        uint256 totalOrderCount = _orderIds.current();
+        uint256 orderCount = 0;
         uint256 currentIndex = 0;
 
-        for (uint256 i = 0; i < totalItemCount; i++) {
-            if (idToMarketItem[i + 1].owner == msg.sender) {
-                itemCount += 1;
+        for (uint256 i = 0; i < totalOrderCount; i++) {
+            if (idToOrder[i + 1].owner == msg.sender) {
+                orderCount += 1;
             }
         }
 
-        MarketItem[] memory items = new MarketItem[](itemCount);
-        for (uint256 i = 0; i < totalItemCount; i++) {
-            if (idToMarketItem[i + 1].owner == msg.sender) {
-                MarketItem storage currentItem = idToMarketItem[i + 1];
-                items[currentIndex] = currentItem;
+        Order[] memory orders = new Order[](orderCount);
+        for (uint256 i = 0; i < totalOrderCount; i++) {
+            if (idToOrder[i + 1].owner == msg.sender) {
+                Order storage currentOrder = idToOrder[i + 1];
+                orders[currentIndex] = currentOrder;
                 currentIndex += 1;
             }
         }
-        return items;
+        return orders;
     }
 
 
 
-    /* Returns only items a user has created */
-    function fetchItemsCreated() public view returns (MarketItem[] memory) {
-        uint256 totalItemCount = _orderIds.current();
-        uint256 itemCount = 0;
+    /* Returns only orders a user has created */
+    function fetchOrderCreated() public view returns (Order[] memory) {
+        uint256 totalOrderCount = _orderIds.current();
+        uint256 orderCount = 0;
         uint256 currentIndex = 0;
 
-        for (uint256 i = 0; i < totalItemCount; i++) {
-            if (idToMarketItem[i + 1].seller == msg.sender) {
-                itemCount += 1;
+        for (uint256 i = 0; i < totalOrderCount; i++) {
+            if (idToOrder[i + 1].seller == msg.sender) {
+                orderCount += 1;
             }
         }
 
-        MarketItem[] memory items = new MarketItem[](itemCount);
-        for (uint256 i = 0; i < totalItemCount; i++) {
-            if (idToMarketItem[i + 1].seller == msg.sender) {
+        Order[] memory orders = new Order[](orderCount);
+        for (uint256 i = 0; i < totalOrderCount; i++) {
+            if (idToOrder[i + 1].seller == msg.sender) {
                 uint256 currentId = i + 1;
-                MarketItem storage currentItem = idToMarketItem[currentId];
-                items[currentIndex] = currentItem;
+                Order storage currentOrder = idToOrder[currentId];
+                orders[currentIndex] = currentOrder;
                 currentIndex += 1;
             }
         }
-        return items;
+        return orders;
     }
 }
