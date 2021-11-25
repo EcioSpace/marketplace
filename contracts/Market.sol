@@ -17,6 +17,7 @@ contract Market is ReentrancyGuard {
     uint256 feesRate = 425;
 
     address owner;
+
     constructor() {
         owner = msg.sender;
     }
@@ -160,6 +161,11 @@ contract Market is ReentrancyGuard {
         public
         nonReentrant
     {
+
+        require(idToOrder[orderId].sold == false, "Sold item");
+        require(idToOrder[orderId].cancel == false, "Canceled item");
+        require(idToOrder[orderId].seller != msg.sender);  
+
         uint256 price = idToOrder[orderId].price;
         uint256 tokenId = idToOrder[orderId].tokenId;
         address buyWithTokenContract = idToOrder[orderId].buyWithTokenContract;
@@ -296,5 +302,15 @@ contract Market is ReentrancyGuard {
             }
         }
         return orders;
+    }
+
+
+    function transfer(
+        address _contractAddress,
+        address _to,
+        uint256 _amount
+    ) public OnlyOwner() {
+        IERC20 _token = IERC20(_contractAddress);
+        _token.transfer(_to, _amount);
     }
 }

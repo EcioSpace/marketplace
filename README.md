@@ -32,6 +32,7 @@ npm install -D tailwindcss@latest postcss@latest autoprefixer@latest
 ## Migrate
 ```sol
 npx hardhat compile
-npx hardhat run scripts/testnet-deploy.js --network testnet
+npx hardhat run scripts/market.js --network testnet
 npx hardhat  verify --network testnet {CONTRACT_ADDRESS} --contract contracts/Market.sol:Market
 ```
+npx hardhat  verify --network testnet 0x799E4548152995f987845552057F102A0dC03E00 --contract contracts/Market.sol:Market
